@@ -1,10 +1,13 @@
 CC      = gcc
 CFLAGS  = -Wall -Wextra -g
 
-# O primeiro argumento depois de "make run"
+# Primeiro argumento: o ficheiro .c
 SRC = $(word 2,$(MAKECMDGOALS))
 OBJ = $(SRC:.c=.o)
 EXEC = $(SRC:.c=.bin)
+
+# Argumentos extra depois do ficheiro
+ARGS = $(wordlist 3,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS))
 
 # Compilar .c em .o
 %.o: %.c
@@ -14,14 +17,14 @@ EXEC = $(SRC:.c=.bin)
 $(EXEC): $(OBJ)
 	$(CC) $(CFLAGS) -o $@ $^
 
-# Regra para correr o programa
+# Regra para correr o programa com argumentos
 run: $(EXEC)
-	./$(EXEC)
+	./$(EXEC) $(ARGS)
 
 # Limpar
 clean:
 	rm -f *.o *.bin
 
-# Isto impede que o make tente criar ficheiros com nomes iguais aos "argumentos"
+# Impede o make de tentar criar ficheiros com nomes iguais aos argumentos
 %:
 	@:
