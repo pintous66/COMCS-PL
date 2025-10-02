@@ -3,17 +3,18 @@
 #include <string.h>
 #include <unistd.h>
 #include <arpa/inet.h>
+#include <netdb.h>
 
 #define PORT 8080
 #define BUFSIZE 1024
 
 int main(int argc, char *argv[]) {
     if (argc != 2) {
-        fprintf(stderr, "Uso: %s <IP do servidor>\n", argv[0]);
+        fprintf(stderr, "Uso: %s <IP ou hostname do servidor>\n", argv[0]);
         exit(EXIT_FAILURE);
     }
 
-    char *server_ip = argv[1];
+    char *server_name = argv[1];
     int sockfd;
     char buffer[BUFSIZE];
     struct sockaddr_in servaddr;
@@ -29,20 +30,30 @@ int main(int argc, char *argv[]) {
     servaddr.sin_family = AF_INET;
     servaddr.sin_port = htons(PORT);
 
-    if (inet_pton(AF_INET, server_ip, &servaddr.sin_addr) <= 0) {
-        fprintf(stderr, "IP inválido: %s\n", server_ip);
+    // Resolver DNS ou IP
+    struct addrinfo hints, *res;
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_INET;       // IPv4
+    hints.ai_socktype = SOCK_DGRAM;  // UDP
+
+    if (getaddrinfo(server_name, NULL, &hints, &res) != 0) {
+        perror("Erro ao resolver o hostname");
         exit(EXIT_FAILURE);
     }
 
-    printf("Ligado a %s:%d\n", server_ip, PORT);
+    memcpy(&servaddr.sin_addr, &((struct sockaddr_in*)res->ai_addr)->sin_addr,
+           sizeof(struct in_addr));
+    freeaddrinfo(res);
 
-    // Loop de envio de mensagens
+    printf("Ligado a %s:%d\n", server_name, PORT);
+
+    // Loop de envio/receção de mensagens
     while (1) {
         printf("Tu: ");
         if (!fgets(buffer, BUFSIZE, stdin)) break; // ler do terminal
-        buffer[strcspn(buffer, "\n")] = 0; // remover \n
+        buffer[strcspn(buffer, "\n")] = 0;          // remover \n
 
-        if (strcmp(buffer, "exit") == 0) break; // sair do cliente
+        if (strcmp(buffer, "exit") == 0) break;     // sair do cliente
 
         // enviar mensagem
         if (sendto(sockfd, buffer, strlen(buffer), 0,
@@ -52,8 +63,7 @@ int main(int argc, char *argv[]) {
         }
 
         // receber resposta
-        int n = recvfrom(sockfd, buffer, BUFSIZE, 0,
-                         NULL, NULL);
+        int n = recvfrom(sockfd, buffer, BUFSIZE, 0, NULL, NULL);
         if (n < 0) {
             perror("recvfrom failed");
             continue;
